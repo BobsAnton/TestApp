@@ -45,6 +45,28 @@ namespace TestApp
 
             // The DirectoryInfo object for %SystemDrive%\Test folder.
             var dir = new DirectoryInfo(systemDrive + testFolderName);
+
+            try
+            {
+                if (Directory.GetDirectories(dir.FullName).Count() == 0)
+                {
+                    Console.WriteLine("The {0} folder is empty.", testFolderName);
+                    return;
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                Console.WriteLine("Error! Security exception.");
+                return;
+            }
+
+            if (args.Length == 0)
+            {
+                Console.WriteLine("Error! No arguments!");
+                return;
+            }
+
+            var arg = args[0];
         }
     }
 }
