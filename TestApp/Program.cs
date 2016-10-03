@@ -10,6 +10,8 @@ namespace TestApp
     {
         static void Main(string[] args)
         {
+            // %SystemDrive%
+            var systemDrive = Environment.ExpandEnvironmentVariables("%SystemDrive%") + @"\";
         }
     }
 }
