@@ -67,6 +67,25 @@ namespace TestApp
             }
 
             var arg = args[0];
+            var path = string.Empty;
+
+            if (arg == string.Format(@"{0}|{1}", dir.FullName, "Latest"))
+            {
+                // Get the path to the "latest" folder.
+                arg = string.Format(@"{0}|{1}", dir.FullName, DateTime.MaxValue.ToString("yyyy-MM-dd"));
+            }
+
+            path = dir.GetPath(arg);
+
+            if (path == string.Empty)
+            {
+                Console.WriteLine("Error! Invalid argument!");
+                return;
+            }
+            else
+            {
+                Console.WriteLine(path);
+            }
         }
     }
 }
