@@ -42,6 +42,9 @@ namespace TestApp
                     return;
                 }
             }
+
+            // The DirectoryInfo object for %SystemDrive%\Test folder.
+            var dir = new DirectoryInfo(systemDrive + testFolderName);
         }
     }
 }
