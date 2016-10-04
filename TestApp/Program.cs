@@ -9,17 +9,23 @@ namespace TestApp
 {
     class Program
     {
+        const string const_err_no_arg = "Error! No arguments!";
+        const string const_err_invalid_arg = "Error! Invalid argument!";
+        const string const_err_secur_exept = "Error! Security exception.";
+        const string const_folder_name = "Test";
+        const string const_err_folder_empty = "Error! The " + const_folder_name + " folder is empty.";
+
         static void Main(string[] args)
         {
             if (args.Length == 0)
             {
-                Console.WriteLine("Error! No arguments!");
+                Console.WriteLine(const_err_no_arg);
                 return;
             }
-            var arg = args[0].Split('|');
+            var arg = args[0].Split(DirectoryInfoExtension.const_separator);
             if (arg.Length != 2)
             {
-                Console.WriteLine("Error! Invalid argument!");
+                Console.WriteLine(const_err_invalid_arg);
                 return;
             }
 
@@ -32,13 +38,13 @@ namespace TestApp
             }
             catch (Exception)
             {
-                Console.WriteLine("Error! Invalid argument!");
+                Console.WriteLine(const_err_invalid_arg);
                 return;
             }
 
-            if (dir.FullName != Environment.ExpandEnvironmentVariables("%SystemDrive%") + @"\Test")
+            if (dir.FullName.Equals(Path.Combine(Environment.ExpandEnvironmentVariables("%SystemDrive%"), const_folder_name), StringComparison.InvariantCultureIgnoreCase))
             {
-                Console.WriteLine("Error! Invalid argument!");
+                Console.WriteLine(const_err_invalid_arg);
                 return;
             }
 
@@ -61,7 +67,7 @@ namespace TestApp
                 }
                 catch (System.Security.SecurityException)
                 {
-                    Console.WriteLine("Error! Security exception.");
+                    Console.WriteLine(const_err_secur_exept);
                     return;
                 }
             }
@@ -70,21 +76,21 @@ namespace TestApp
             {
                 if (Directory.GetDirectories(dir.FullName).Count() == 0)
                 {
-                    Console.WriteLine("The {0} folder is empty.", dir.FullName);
+                    Console.WriteLine(const_err_folder_empty);
                     return;
                 }
             }
             catch (UnauthorizedAccessException)
             {
-                Console.WriteLine("Error! Security exception.");
+                Console.WriteLine(const_err_secur_exept);
                 return;
             }
 
             var path = dir.TryExtractPath(mask);
 
-            if (path == string.Empty)
+            if (string.IsNullOrEmpty(path))
             {
-                Console.WriteLine("Error! Invalid argument!");
+                Console.WriteLine(const_err_invalid_arg);
                 return;
             }
             else

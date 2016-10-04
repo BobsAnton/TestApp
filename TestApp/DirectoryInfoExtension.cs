@@ -10,6 +10,9 @@ namespace TestApp
 {
     public static class DirectoryInfoExtension
     {
+        public const char const_separator = '|';
+        const string const_latest = "Latest";
+
         /// <summary>
         /// Returns the full path to the directory, which coincides or almost coincides with the mask parameter, 
         /// or returns an empty string on failure.
@@ -29,7 +32,7 @@ namespace TestApp
             if (DateTime.TryParse(mask, out date))
             {
                 path = dir.GetPath(date, dates);
-                if (path == string.Empty) mask = "Latest";
+                if (string.IsNullOrEmpty(path)) mask = const_latest;
             }
             else
             {
@@ -37,11 +40,11 @@ namespace TestApp
                 if (Version.TryParse(mask, out version))
                 {
                     path = dir.GetPath(version, versions);
-                    if (path == string.Empty) mask = "Latest";
+                    if (string.IsNullOrEmpty(path)) mask = const_latest;
                 }
             }
 
-            if (mask == "Latest") path = dir.Latest(dates, versions);
+            if (mask.Equals(const_latest)) path = dir.Latest(dates, versions);
             return path;
         }
 
@@ -55,13 +58,13 @@ namespace TestApp
         {
             dates = new List<DateTime>();
             versions = new List<Version>();
-            var foldersNames = Directory.GetDirectories(dir.FullName);
-            foreach (var foldersName in foldersNames.Select(fn => fn.Remove(0, (dir.FullName + '|').Count())))
+            var foldersNames = Directory.GetDirectories(dir.FullName).Select(fn => dir.RemovePrefix(fn));
+            foreach (var foldersName in foldersNames)
             {
-                if (foldersName.Contains('-'))
+                DateTime date;
+                if (DateTime.TryParse(foldersName, out date))
                 {
-                    DateTime date;
-                    if (DateTime.TryParse(foldersName, out date)) dates.Add(date);
+                    dates.Add(date);
                 }
                 else
                 {
@@ -115,6 +118,17 @@ namespace TestApp
             if (dates.Count != 0) return dir.GetPath(DateTime.MaxValue, dates);
             if (versions.Count != 0) return dir.GetPath(new Version(int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue), versions);
             return string.Empty;
+        }
+
+        /// <summary>
+        /// Removes the prefix characters (example: C:\Test|2016-05-18 -> 2016-05-18)
+        /// </summary>
+        /// <param name="dir">The instance of the DirectoryInfo class</param>
+        /// <param name="arg">example: C:\Test|2016-05-18</param>
+        /// <returns>example: 2016-05-18</returns>
+        private static string RemovePrefix(this DirectoryInfo dir, string arg)
+        {
+            return arg.Remove(0, (dir.FullName + const_separator).Count());
         }
     }
 }
