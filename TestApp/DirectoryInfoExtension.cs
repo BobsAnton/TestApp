@@ -84,9 +84,15 @@ namespace TestApp
         /// <returns>Path to the directory</returns>
         private static string GetPath(this DirectoryInfo dir, DateTime date, List<DateTime> dates)
         {
-            if (dates.Contains(date)) return string.Format(@"{0}|{1}", dir.FullName, date.ToString("yyyy-MM-dd"));
-            if (dates.Count != 0 && dates.Where(d => d < date).OrderByDescending(d => d.Date).Count() != 0)
-                return string.Format(@"{0}|{1}", dir.FullName, dates.Where(d => d < date).OrderByDescending(d => d).First().ToString("yyyy-MM-dd"));
+            var matches = Directory.GetDirectories(dir.FullName).Where(fn => date.CompareWith(dir.RemovePrefix(fn)));
+            if (matches.Count() != 0) return matches.First();
+
+            if (dates.Count != 0 && dates.Where(d => d < date).OrderByDescending(d => d).Count() != 0)
+            {
+                var prevDate = dates.Where(d => d < date).OrderByDescending(d => d).First();
+                matches = Directory.GetDirectories(dir.FullName).Where(fn => prevDate.CompareWith(dir.RemovePrefix(fn)));
+                if (matches.Count() != 0) return matches.First();
+            }
             return string.Empty;
         }
 
@@ -100,10 +106,48 @@ namespace TestApp
         /// <returns>Path to the directory</returns>
         private static string GetPath(this DirectoryInfo dir, Version version, List<Version> versions)
         {
-            if (versions.Contains(version)) return string.Format(@"{0}|{1}", dir.FullName, version);
-            if (versions.Count() != 0 && versions.Where(v => v < version).OrderByDescending(v => v).Count() != 0)
-                return string.Format(@"{0}|{1}", dir.FullName, versions.Where(v => v < version).OrderByDescending(v => v).First());
+            var matches = Directory.GetDirectories(dir.FullName).Where(fn => version.CompareWith(dir.RemovePrefix(fn)));
+            if (matches.Count() != 0) return matches.First();
+
+            if (versions.Count != 0 && versions.Where(v => v < version).OrderByDescending(v => v).Count() != 0)
+            {
+                var prevVersion = versions.Where(v => v < version).OrderByDescending(v => v).First();
+                matches = Directory.GetDirectories(dir.FullName).Where(fn => prevVersion.CompareWith(dir.RemovePrefix(fn)));
+                if (matches.Count() != 0) return matches.First();
+            }
             return string.Empty;
+        }
+
+        /// <summary>
+        /// Compares the instance of the DateTime with the string.
+        /// </summary>
+        /// <param name="date">The instance of the DateTime class</param>
+        /// <param name="foldersName">String in the DateTime format (example: 2016-05-18)</param>
+        /// <returns></returns>
+        private static bool CompareWith(this DateTime date, string foldersName)
+        {
+            DateTime nextDate;
+            if (DateTime.TryParse(foldersName, out nextDate) && nextDate.Equals(date))
+            {
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Compares the instance of the Version with the string.
+        /// </summary>
+        /// <param name="version">The instance of the Version class</param>
+        /// <param name="foldersName">String in the Version format (example: 41.1.105.0)</param>
+        /// <returns></returns>
+        private static bool CompareWith(this Version version, string foldersName)
+        {
+            Version nextVersion;
+            if (Version.TryParse(foldersName, out nextVersion) && nextVersion.Equals(version))
+            {
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
