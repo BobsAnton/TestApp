@@ -11,30 +11,53 @@ namespace TestApp
     {
         static void Main(string[] args)
         {
-            // %SystemDrive%
-            var systemDrive = Environment.ExpandEnvironmentVariables("%SystemDrive%") + @"\";
+            if (args.Length == 0)
+            {
+                Console.WriteLine("Error! No arguments!");
+                return;
+            }
+            var arg = args[0].Split('|');
+            if (arg.Length != 2)
+            {
+                Console.WriteLine("Error! Invalid argument!");
+                return;
+            }
 
-            const string testFolderName = @"Test";
+            DirectoryInfo dir;
+            var mask = arg[1];
+            try
+            {
+                // The DirectoryInfo object for %SystemDrive%\Test folder.
+                dir = new DirectoryInfo(arg[0]);
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Error! Invalid argument!");
+                return;
+            }
+
+            if (dir.FullName != Environment.ExpandEnvironmentVariables("%SystemDrive%") + @"\Test")
+            {
+                Console.WriteLine("Error! Invalid argument!");
+                return;
+            }
+
             // The existence check of the %SystemDrive%/Test folder
-            if (!Directory.Exists(systemDrive + testFolderName))
+            if (!Directory.Exists(dir.FullName))
             {
                 try
                 {
-                    // Create the %SystemDrive%/Test folder
-                    var systemDriveFolder = new DirectoryInfo(systemDrive);
-                    var testFolder = systemDriveFolder.CreateSubdirectory("Test");
-
                     // Create test folders inside %SystemDrive%/Test
-                    testFolder.CreateSubdirectory(@"2015-09-15");
-                    testFolder.CreateSubdirectory(@"2015-09-20");
-                    testFolder.CreateSubdirectory(@"2015-10-10");
-                    testFolder.CreateSubdirectory(@"2015-12-13");
-                    testFolder.CreateSubdirectory(@"2016-05-17");
-                    testFolder.CreateSubdirectory(@"41.1.102.0");
-                    testFolder.CreateSubdirectory(@"41.1.103.0");
-                    testFolder.CreateSubdirectory(@"41.1.104.0");
-                    testFolder.CreateSubdirectory(@"41.1.104.1");
-                    testFolder.CreateSubdirectory(@"41.1.105.0");
+                    dir.CreateSubdirectory(@"2015-09-15");
+                    dir.CreateSubdirectory(@"2015-09-20");
+                    dir.CreateSubdirectory(@"2015-10-10");
+                    dir.CreateSubdirectory(@"2015-12-13");
+                    dir.CreateSubdirectory(@"2016-05-17");
+                    dir.CreateSubdirectory(@"41.1.102.0");
+                    dir.CreateSubdirectory(@"41.1.103.0");
+                    dir.CreateSubdirectory(@"41.1.104.0");
+                    dir.CreateSubdirectory(@"41.1.104.1");
+                    dir.CreateSubdirectory(@"41.1.105.0");
                 }
                 catch (System.Security.SecurityException)
                 {
@@ -42,15 +65,12 @@ namespace TestApp
                     return;
                 }
             }
-
-            // The DirectoryInfo object for %SystemDrive%\Test folder.
-            var dir = new DirectoryInfo(systemDrive + testFolderName);
-
+          
             try
             {
                 if (Directory.GetDirectories(dir.FullName).Count() == 0)
                 {
-                    Console.WriteLine("The {0} folder is empty.", testFolderName);
+                    Console.WriteLine("The {0} folder is empty.", dir.FullName);
                     return;
                 }
             }
@@ -60,22 +80,7 @@ namespace TestApp
                 return;
             }
 
-            if (args.Length == 0)
-            {
-                Console.WriteLine("Error! No arguments!");
-                return;
-            }
-
-            var arg = args[0];
-            var path = string.Empty;
-
-            if (arg == string.Format(@"{0}|{1}", dir.FullName, "Latest"))
-            {
-                // Get the path to the "latest" folder.
-                arg = string.Format(@"{0}|{1}", dir.FullName, DateTime.MaxValue.ToString("yyyy-MM-dd"));
-            }
-
-            path = dir.GetPath(arg);
+            var path = dir.TryExtractPath(mask);
 
             if (path == string.Empty)
             {

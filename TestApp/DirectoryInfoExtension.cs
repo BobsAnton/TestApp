@@ -10,176 +10,111 @@ namespace TestApp
 {
     public static class DirectoryInfoExtension
     {
-        private static Version maxVersion = new Version(int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue);
-        private static Version minVersion = new Version(0, 0, 0, 0);
-
         /// <summary>
-        /// Returns the full path to the directory, which coincides or almost coincides with the arg parameter, 
+        /// Returns the full path to the directory, which coincides or almost coincides with the mask parameter, 
         /// or returns an empty string on failure.
         /// </summary>
         /// <param name="dir">The instance of the DirectoryInfo class</param>
-        /// <param name="arg">Input parameter (example: C:\Test|41.1.109.2)</param>
+        /// <param name="mask">example: C:\Test|41.1.109.2 or C:\Test|2016-05-17</param>
         /// <returns>Path to the directory</returns>
-        public static string GetPath(this DirectoryInfo dir, string arg)
+        public static string TryExtractPath(this DirectoryInfo dir, string mask)
         {
-            // Check arg.
-            if (!arg.Contains(dir.FullName + "|")) return string.Empty;
-            // Remove [C:\Test|] -> arg = 41.1.101.0
-            arg = dir.RemovePrefix(arg);
-            if (arg.Length == 0) return string.Empty;
+            List<DateTime> dates;
+            List<Version> versions;
+            dir.GetLists(out dates, out versions);
 
-            // Search for the path to the folder.
-            var foldersNames = Directory.GetDirectories(dir.FullName);
-            if (foldersNames.Where(fn => fn.Contains(arg)).Count() != 0)
-                return foldersNames.Where(fn => fn.Contains(arg)).First();
-
-            // Search for the path to the "latest" folder.
-            var obj = dir.ExtractObject(arg);
-            return (obj != null) ? dir.Latest(obj) : string.Empty;
-        }
-
-
-        /// <summary>
-        /// Looking for the most similar directory or the most latest directory.
-        /// </summary>
-        /// <param name="dir">The instance of the DirectoryInfo class</param>
-        /// <param name="obj">The instance of the DateTime or Version class</param>
-        /// <returns>Path to the directory</returns>
-        private static string Latest(this DirectoryInfo dir, object obj)
-        {
-            var mask = (obj is DateTime?) ?
-                ((DateTime)obj).ToString("yyyy-MM-dd") :
-                ((Version)obj).ToString();
-
-            var split = (obj is DateTime?) ? '-' : '.';
-
-            var splitIndex = mask.Length - 1;
-            var splitNumber = mask.Split(split).Count();
-            for (int i = 0; i < splitNumber; i++)
+            var path = string.Empty;
+            
+            DateTime date; 
+            if (DateTime.TryParse(mask, out date))
             {
-                splitIndex = mask.LastIndexOf(split, splitIndex - 1);
-
-                // Search for the similar folders.
-                mask = mask.Remove(splitIndex + 1) + '*';
-                var dirs = Directory.GetDirectories(dir.FullName, mask).Where(d => d.Contains(split)).ToArray();
-                if (dirs.Count() == 0)
-                {
-                    // No similar folders.
-                    // Expand the search range.
-                    continue;
-                }
-
-                // Search for the previous version.
-                var nameDir = dir.GetPrevVersion(dirs, obj);
-                if (nameDir != string.Empty)
-                {
-                    // Success.
-                    return string.Format(@"{0}\{1}", dir.FullName, nameDir);
-                }
+                path = dir.GetPath(date, dates);
+                if (path == string.Empty) mask = "Latest";
             }
-
-            // Failure -> Return the path to the "latest" folder.
-            if (obj is DateTime)
-            {
-                return ((DateTime)obj != DateTime.MaxValue) ? dir.Latest(DateTime.MaxValue) : dir.Latest(maxVersion);          
-            }
-            if (obj is Version)
-            {
-                return ((Version)obj != maxVersion) ? dir.Latest(maxVersion) : dir.Latest(DateTime.MaxValue);
-            }                      
-            return string.Empty;
-        }
-
-        /// <summary>
-        /// Returns the name of the directory (no higher than the current version) 
-        /// from the list of similar directories or an empty string on failure.
-        /// </summary>
-        /// <param name="dir">The instance of the DirectoryInfo class</param>
-        /// <param name="similarDirs">List of similar catalogs</param>
-        /// <param name="obj">The instance of the DateTime or Version class</param>
-        /// <returns>If successful, it returns the name of the directory</returns>
-        private static string GetPrevVersion(this DirectoryInfo dir, string[] similarDirs, object obj)
-        {
-            // DateTime.
-            if (obj is DateTime)
-            {
-                var currentDate = (DateTime)obj;
-                var prevDate = DateTime.MinValue;
-
-                foreach (var sdir in similarDirs)
-                {
-                    var date = dir.ExtractObject(dir.RemovePrefix(sdir));
-                    if (date == null) continue;
-                    var nextDate = (DateTime)date;
-                    if (nextDate < currentDate && nextDate > prevDate)
-                    {
-                        prevDate = nextDate;
-                    }
-                }
-
-                if (prevDate != DateTime.MinValue)
-                {
-                    return prevDate.ToString("yyyy-MM-dd");
-                }               
-            }
-            // Version.
             else
             {
-                var currentVersion = (Version)obj;
-                var prevVersion = minVersion;
-
-                foreach (var sdir in similarDirs)
+                Version version;
+                if (Version.TryParse(mask, out version))
                 {
-                    var version = dir.ExtractObject(dir.RemovePrefix(sdir));
-                    if (version == null) continue;
-                    var nextVersion = (Version)version;
-                    if (nextVersion < currentVersion && nextVersion > prevVersion)
-                    {
-                        prevVersion = nextVersion;
-                    }
-                }
-
-                if (prevVersion != minVersion)
-                {
-                    return prevVersion.ToString();
+                    path = dir.GetPath(version, versions);
+                    if (path == string.Empty) mask = "Latest";
                 }
             }
+
+            if (mask == "Latest") path = dir.Latest(dates, versions);
+            return path;
+        }
+
+        /// <summary>
+        /// Tries to convert folder names in the directory "dir" to the instances of DateTime or Version.
+        /// </summary>
+        /// <param name="dir">The instance of the DirectoryInfo class</param>
+        /// <param name="dates">List of the instances of the DateTime class</param>
+        /// <param name="versions">List of the instances of the Version class</param>
+        private static void GetLists(this DirectoryInfo dir, out List<DateTime> dates, out List<Version> versions)
+        {
+            dates = new List<DateTime>();
+            versions = new List<Version>();
+            var foldersNames = Directory.GetDirectories(dir.FullName);
+            foreach (var foldersName in foldersNames.Select(fn => fn.Remove(0, (dir.FullName + '|').Count())))
+            {
+                if (foldersName.Contains('-'))
+                {
+                    DateTime date;
+                    if (DateTime.TryParse(foldersName, out date)) dates.Add(date);
+                }
+                else
+                {
+                    Version version;
+                    if (Version.TryParse(foldersName, out version)) versions.Add(version);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns the full path to the directory, which coincides or almost coincides with the date parameter, 
+        /// or returns an empty string on failure.
+        /// </summary>
+        /// <param name="dir">The instance of the DirectoryInfo class</param>
+        /// <param name="date">The instance of the DateTime class</param>
+        /// <param name="dates">List of the instances of the DateTime class</param>
+        /// <returns>Path to the directory</returns>
+        private static string GetPath(this DirectoryInfo dir, DateTime date, List<DateTime> dates)
+        {
+            if (dates.Contains(date)) return string.Format(@"{0}|{1}", dir.FullName, date.ToString("yyyy-MM-dd"));
+            if (dates.Count != 0 && dates.Where(d => d < date).OrderByDescending(d => d.Date).Count() != 0)
+                return string.Format(@"{0}|{1}", dir.FullName, dates.Where(d => d < date).OrderByDescending(d => d).First().ToString("yyyy-MM-dd"));
             return string.Empty;
         }
 
         /// <summary>
-        /// Removes the prefix characters (example: C:\Test|2016-05-18 -> 2016-05-18)
+        /// Returns the full path to the directory, which coincides or almost coincides with the version parameter, 
+        /// or returns an empty string on failure.
         /// </summary>
         /// <param name="dir">The instance of the DirectoryInfo class</param>
-        /// <param name="arg">example: C:\Test|2016-05-18</param>
-        /// <returns>example: 2016-05-18</returns>
-        private static string RemovePrefix(this DirectoryInfo dir, string arg)
+        /// <param name="version">The instance of the Version class</param>
+        /// <param name="versions">List of the instances of the Version class</param>
+        /// <returns>Path to the directory</returns>
+        private static string GetPath(this DirectoryInfo dir, Version version, List<Version> versions)
         {
-            return arg.Remove(0, (dir.FullName + "|").Count());
+            if (versions.Contains(version)) return string.Format(@"{0}|{1}", dir.FullName, version);
+            if (versions.Count() != 0 && versions.Where(v => v < version).OrderByDescending(v => v).Count() != 0)
+                return string.Format(@"{0}|{1}", dir.FullName, versions.Where(v => v < version).OrderByDescending(v => v).First());
+            return string.Empty;
         }
 
         /// <summary>
-        /// Attempts to create an instance of the DateTime or Version class from a string.
+        /// Returns the full path to the most latest directory.
         /// </summary>
         /// <param name="dir">The instance of the DirectoryInfo class</param>
-        /// <param name="arg">A string in DateTime format or Version format</param>
-        /// <returns>The instance of the DateTime or Version class or null on failure</returns>
-        private static object ExtractObject(this DirectoryInfo dir, string arg)
+        /// <param name="dates">List of the instances of the DateTime class</param>
+        /// <param name="versions">List of the instances of the Version class</param>
+        /// <returns>Path to the directory</returns>
+        private static string Latest(this DirectoryInfo dir, List<DateTime> dates, List<Version> versions)
         {
-            object obj = null;
-            try
-            {
-                obj = DateTime.Parse(arg);
-            }
-            catch (FormatException) { }
-
-            try
-            {
-                obj = Version.Parse(arg);
-            }
-            catch (Exception) { }
-
-            return obj;
+            if (dates.Count != 0) return dir.GetPath(DateTime.MaxValue, dates);
+            if (versions.Count != 0) return dir.GetPath(new Version(int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue), versions);
+            return string.Empty;
         }
     }
 }
